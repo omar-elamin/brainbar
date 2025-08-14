@@ -10,13 +10,12 @@ final class KeyWindow: NSWindow {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
   var window: KeyWindow!
   let blur = NSVisualEffectView()
-  let brain = NSTextField(labelWithString: "🧠")
   let field = NSTextField()
   var keyMonitor: Any?
   var globalKeyMonitor: Any?
   var initialFrame: NSRect!
-  let initialWidth: CGFloat = 860
-  let initialHeight: CGFloat = 56
+  let initialWidth: CGFloat = 680
+  let initialHeight: CGFloat = 72
 
   func applicationDidFinishLaunching(_: Notification) {
     // --- Size/position like Spotlight (top area)
@@ -35,40 +34,65 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     window.titleVisibility = .hidden
     window.titlebarAppearsTransparent = true
 
-    // --- One blurred pill with Spotlight-like appearance
+    // --- Beautiful blurred container with macOS vibrancy
     blur.frame = window.contentView!.bounds
     blur.autoresizingMask = [.width, .height]
-    blur.material = .menu        // .hudWindow for darker
+    
+    // Dynamic material based on appearance
+    let isDarkMode = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    blur.material = isDarkMode ? .hudWindow : .sidebar
     blur.state = .active
     blur.wantsLayer = true
-    blur.layer?.cornerRadius = 12  // Reduced from H/2 (28) to match Spotlight
+    blur.layer?.cornerRadius = 22
     blur.layer?.masksToBounds = true
-    blur.layer?.borderWidth = 0.5
-    blur.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
+    
+    // Add subtle drop shadow
+    blur.layer?.shadowColor = NSColor.black.cgColor
+    blur.layer?.shadowOffset = CGSize(width: 0, height: -20)
+    blur.layer?.shadowRadius = 40
+    blur.layer?.shadowOpacity = 0.25
+    
+    // Inner hairline for high contrast only
+    if NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast {
+      blur.layer?.borderWidth = 1
+      blur.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.5).cgColor
+    }
+    
     window.contentView?.addSubview(blur)
 
-    // --- Brain emoji
-    brain.font = .systemFont(ofSize: 26)
-    brain.textColor = .secondaryLabelColor
-    brain.alignment = .center
-    brain.frame = NSRect(x: 18, y: (H - 26)/2 - 1, width: 28, height: 28)
-    blur.addSubview(brain)
 
-    // --- Text field (editable, multiline capable)
-    field.placeholderString = "Brain Dump"
-    field.font = .systemFont(ofSize: 28, weight: .regular)
-    field.textColor = .black
+    // --- Centered text field with proper wrapping
+    field.placeholderString = "Type to capture."
+    field.font = .systemFont(ofSize: 23, weight: .semibold)
+    field.textColor = .textColor
     field.focusRingType = .none
     field.isBordered = false
     field.drawsBackground = false
     field.isEditable = true
     field.isSelectable = true
+    field.alignment = .left
+    field.maximumNumberOfLines = 0  // Allow unlimited lines
+    
     if let cell = field.cell as? NSTextFieldCell {
       cell.wraps = true
       cell.isScrollable = false
       cell.textColor = .textColor
+      cell.usesSingleLineMode = false
+      cell.lineBreakMode = .byWordWrapping
+      
+      // Beautiful placeholder typography
+      let placeholderFont = NSFont.systemFont(ofSize: 23, weight: .regular)
+      let placeholderAttributes: [NSAttributedString.Key: Any] = [
+        .font: placeholderFont,
+        .foregroundColor: NSColor.placeholderTextColor.withAlphaComponent(0.5)
+      ]
+      cell.placeholderAttributedString = NSAttributedString(string: "Type to capture.", attributes: placeholderAttributes)
     }
-    field.frame = NSRect(x: 56, y: (H - 34)/2, width: W - 72, height: 34)
+    
+    // Start with single line height, properly centered
+    let fieldPadding: CGFloat = 32
+    let singleLineHeight: CGFloat = 32
+    field.frame = NSRect(x: fieldPadding, y: (H - singleLineHeight)/2, width: W - (fieldPadding * 2), height: singleLineHeight)
     field.delegate = self
     blur.addSubview(field)
 
@@ -84,12 +108,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
       }
     }
 
-    // --- Dismiss on Enter / Esc (no focus-loss auto-close to avoid instant quits)
+    // --- Frictionless keyboard flow: ↵ (save), ⇧↵ (new line), Esc (dismiss)
     keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
       guard let self = self else { return e }
       switch e.keyCode {
       case 53: self.quit(); return nil                 // Esc
-      case 36, 76: self.commit(); return nil           // Return / keypad Enter
+      case 36, 76:                                     // Return / keypad Enter
+        if e.modifierFlags.contains(.shift) {
+          // Shift+Return = new line, let it through
+          return e
+        } else {
+          // Return = save and quit
+          self.commit(); return nil
+        }
       default: return e
       }
     }
@@ -133,13 +164,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         window.setFrame(initialFrame, display: true, animate: true)
         blur.frame = window.contentView!.bounds
         blur.layer?.cornerRadius = 12
-        field.frame = NSRect(x: 56, y: (initialHeight - 34)/2, width: initialWidth - 72, height: 34)
+        let fieldPadding: CGFloat = 32
+        let singleLineHeight: CGFloat = 32
+        field.frame = NSRect(x: fieldPadding, y: (initialHeight - singleLineHeight)/2, width: initialWidth - (fieldPadding * 2), height: singleLineHeight)
       }
       return
     }
     
-    let font = field.font ?? NSFont.systemFont(ofSize: 28)
-    let maxWidth = initialWidth - 72 // Account for margins and brain emoji
+    let font = field.font ?? NSFont.systemFont(ofSize: 23, weight: .semibold)
+    let fieldPadding: CGFloat = 32
+    let maxWidth = initialWidth - (fieldPadding * 2)
     
     // Use NSTextContainer to properly measure wrapped text
     let textContainer = NSTextContainer(size: NSSize(width: maxWidth, height: .greatestFiniteMagnitude))
@@ -154,11 +188,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     let textHeight = usedRect.height
     
     // Calculate minimum field height needed
-    let minFieldHeight: CGFloat = 34
-    let calculatedFieldHeight = max(minFieldHeight, textHeight + 16) // Add padding
+    let minFieldHeight: CGFloat = 32
+    let calculatedFieldHeight = max(minFieldHeight, textHeight + 8) // Minimal padding
     
-    // Calculate new window height
-    let newWindowHeight = max(initialHeight, calculatedFieldHeight + 22) // Field padding in window
+    // Calculate new window height with proper padding
+    let verticalPadding: CGFloat = 20
+    let newWindowHeight = max(initialHeight, calculatedFieldHeight + verticalPadding)
     
     if abs(newWindowHeight - window.frame.height) > 1 { // Only adjust if meaningful change
       // Update window frame
@@ -171,11 +206,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
       
       // Update blur view
       blur.frame = window.contentView!.bounds
-      blur.layer?.cornerRadius = 12 // Consistent Spotlight-like corner radius
+      blur.layer?.cornerRadius = 22 // Beautiful rounded corners
       
-      // Update text field frame
+      // Update text field frame - keep it centered in the expanded window
       field.frame = NSRect(
-        x: 56,
+        x: fieldPadding,
         y: (newWindowHeight - calculatedFieldHeight) / 2,
         width: maxWidth,
         height: calculatedFieldHeight
