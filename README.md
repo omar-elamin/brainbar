@@ -35,8 +35,9 @@ A beautiful, frictionless macOS application for instant thought capture. BrainBa
 ### Raycast Integration (Recommended)
 
 For even faster access, use [Raycast](https://raycast.com) to launch BrainBar with any hotkey:
-1. Set your preferred hotkey (e.g., `⇧⌘Space`)
-2. Now launch BrainBar instantly from anywhere
+1. Import the provided launch script from this project into Raycast
+2. Set your preferred hotkey (e.g., `⇧⌘Space`)
+3. Now launch BrainBar instantly from anywhere
 
 ### Usage
 
