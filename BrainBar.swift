@@ -62,7 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
 
     // --- Centered text field with proper wrapping
-    field.placeholderString = "Type to capture."
+    field.placeholderString = "Type to capture"
     field.font = .systemFont(ofSize: 23, weight: .semibold)
     field.textColor = .textColor
     field.focusRingType = .none
@@ -86,7 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         .font: placeholderFont,
         .foregroundColor: NSColor.placeholderTextColor.withAlphaComponent(0.5)
       ]
-      cell.placeholderAttributedString = NSAttributedString(string: "Type to capture.", attributes: placeholderAttributes)
+      cell.placeholderAttributedString = NSAttributedString(string: "Type to capture", attributes: placeholderAttributes)
     }
     
     // Start with single line height, properly centered
