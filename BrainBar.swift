@@ -221,7 +221,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
   private func commit() {
     let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !text.isEmpty else { quit(); return }
-    save(text); quit()
+    save(text)
+    animateAndQuit()
+  }
+  
+  private func animateAndQuit() {
+    let duration: TimeInterval = 0.35
+    let targetY = NSScreen.main?.visibleFrame.maxY ?? window.frame.maxY + 100
+    let originalMidX = window.frame.midX
+    var targetFrame = window.frame
+    targetFrame.origin.y = targetY
+    targetFrame.size.width *= 0.7
+    targetFrame.size.height *= 0.7
+    targetFrame.origin.x = originalMidX - targetFrame.width / 2
+    
+    NSAnimationContext.runAnimationGroup({ context in
+      context.duration = duration
+      context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+      
+      window.animator().setFrame(targetFrame, display: true)
+      window.animator().alphaValue = 0.0
+    }, completionHandler: {
+      self.quit()
+    })
   }
 
   private func quit() {
